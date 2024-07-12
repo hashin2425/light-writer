@@ -13,7 +13,9 @@
 ## 技術・開発環境
 
 - C#
-- .NET Frameworks
+- .NET Framework 4.8
+- Windows フォームアプリケーション (.NET Framework)
+- Visual Studio Community 2022
 
 ## 開発するには
 
