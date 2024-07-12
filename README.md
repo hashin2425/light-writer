@@ -4,6 +4,12 @@
 
 ご自由に使ってください。
 
+## ダウンロード・インストール
+
+1. <https://github.com/hashin2425/light-writer/releases>を開く
+2. 一番新しい`Release.zip`をダウンロードする。
+3. 解凍して、EXE ファイルの方を起動する。
+
 ## 特徴
 
 1. **軽量**
