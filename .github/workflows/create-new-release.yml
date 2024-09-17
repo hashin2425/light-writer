@@ -53,7 +53,7 @@ jobs:
           Compress-Archive -Path .\bin\Release\* -DestinationPath ${{ steps.version_info.outputs.zip_name }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release-zip
           path: ${{ steps.version_info.outputs.zip_name }}
