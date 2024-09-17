@@ -1,0 +1,124 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_notes:
+        description: "Deployment notes or comments"
+        required: true
+        type: string
+
+permissions:
+  packages: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.0.5
+
+      - name: Restore NuGet packages
+        run: nuget restore light-writer.sln
+
+      - name: Build solution
+        run: msbuild light-writer.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Get current date and release count
+        id: version_info
+        run: |
+          $date = Get-Date -Format "yyyy.MM.dd"
+          $count = (git tag -l "v$date-*").Count + 1
+          $version = "v$date-{0:D2}" -f $count
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "zip_name=light-writer-$version.zip" >> $env:GITHUB_OUTPUT
+
+      - name: Packing files
+        run: |
+          New-Item -ItemType Directory -Path .\bin\Release\light-writer
+          Copy-Item -Path .\README.md -Destination .\bin\Release\README.md
+          Copy-Item -Path .\LICENSE -Destination .\bin\Release\LICENSE
+          Move-Item -Path .\bin\Release\light-writer.exe -Destination .\bin\Release\light-writer\light-writer.exe
+
+      - name: Create Release ZIP
+        run: |
+          Compress-Archive -Path .\bin\Release\* -DestinationPath ${{ steps.version_info.outputs.zip_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: release-zip
+          path: ${{ steps.version_info.outputs.zip_name }}
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version info
+        id: version_info
+        run: |
+          date=$(date +'%Y.%m.%d')
+          count=$(git tag -l "v$date-*" | wc -l)
+          next_count=$(printf "%02d" $((count + 1)))
+          echo "version=v$date-$next_count" >> $GITHUB_OUTPUT
+          echo "zip_name=light-writer-v$date-$next_count.zip" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$last_tag" ]; then
+            changes=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            changes=$(git log ${last_tag}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$changes" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: release-zip
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version_info.outputs.version }}
+          release_name: Release ${{ steps.version_info.outputs.version }}
+          body: |
+            Version: ${{ steps.version_info.outputs.version }}
+
+            ## コメント
+            ${{ inputs.deployment_notes }}
+
+            ## 変更点
+            ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+          draft: true
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ steps.version_info.outputs.zip_name }}
+          asset_name: ${{ steps.version_info.outputs.zip_name }}
+          asset_content_type: application/zip
