@@ -44,8 +44,8 @@ jobs:
       - name: Packing files
         run: |
           New-Item -ItemType Directory -Path .\bin\Release\light-writer
-          Copy-Item -Path .\README.md -Destination .\bin\Release\README.md
-          Copy-Item -Path .\LICENSE -Destination .\bin\Release\LICENSE
+          Copy-Item -Path .\README.md -Destination .\bin\Release\light-writer\README.md
+          Copy-Item -Path .\LICENSE -Destination .\bin\Release\light-writer\LICENSE
           Move-Item -Path .\bin\Release\light-writer.exe -Destination .\bin\Release\light-writer\light-writer.exe
 
       - name: Create Release ZIP
