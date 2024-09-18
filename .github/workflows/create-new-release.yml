@@ -32,15 +32,6 @@ jobs:
       - name: Build solution
         run: msbuild light-writer.sln /p:Configuration=Release /p:Platform="Any CPU"
 
-      - name: Get current date and release count
-        id: version_info
-        run: |
-          $date = Get-Date -Format "yyyy.MM.dd"
-          $count = (git tag -l "v$date-*").Count + 1
-          $version = "v$date-{0:D2}" -f $count
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "zip_name=light-writer-$version.zip" >> $env:GITHUB_OUTPUT
-
       - name: Packing files
         run: |
           New-Item -ItemType Directory -Path .\bin\Release\light-writer
@@ -50,13 +41,13 @@ jobs:
 
       - name: Create Release ZIP
         run: |
-          Compress-Archive -Path .\bin\Release\* -DestinationPath ${{ steps.version_info.outputs.zip_name }}
+          Compress-Archive -Path .\bin\Release\* -DestinationPath new-release.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-zip
-          path: ${{ steps.version_info.outputs.zip_name }}
+          path: new-release.zip
 
   create-release:
     needs: build
@@ -93,6 +84,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release-zip
+
+      - name: Rename release ZIP
+        run: mv new-release.zip ${{ steps.version_info.outputs.zip_name }}
 
       - name: Create Release
         id: create_release
